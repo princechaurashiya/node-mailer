@@ -1,5 +1,5 @@
 const express = require('express');
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -10,8 +10,14 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Create transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 // Send email endpoint
 app.post('/api/send-email', async (req, res) => {
@@ -25,28 +31,29 @@ app.post('/api/send-email', async (req, res) => {
     });
   }
 
-  try {
-    await resend.emails.send({
-      from: process.env.FROM_EMAIL || 'onboarding@resend.dev',
-      to: process.env.RECEIVER_EMAIL,
-      replyTo: email,
-      subject: `Portfolio Contact from ${name}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #6C63FF;">New Contact Message</h2>
-          <div style="background: #f5f5f5; padding: 20px; border-radius: 10px;">
-            <p><strong>Name:</strong> ${name}</p>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Message:</strong></p>
-            <p style="background: white; padding: 15px; border-radius: 5px;">${message}</p>
-          </div>
-          <p style="color: #888; font-size: 12px; margin-top: 20px;">
-            This email was sent from your portfolio contact form.
-          </p>
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: process.env.RECEIVER_EMAIL || process.env.EMAIL_USER,
+    replyTo: email,
+    subject: `Portfolio Contact from ${name}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #6C63FF;">New Contact Message</h2>
+        <div style="background: #f5f5f5; padding: 20px; border-radius: 10px;">
+          <p><strong>Name:</strong> ${name}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Message:</strong></p>
+          <p style="background: white; padding: 15px; border-radius: 5px;">${message}</p>
         </div>
-      `,
-    });
+        <p style="color: #888; font-size: 12px; margin-top: 20px;">
+          This email was sent from your portfolio contact form.
+        </p>
+      </div>
+    `,
+  };
 
+  try {
+    await transporter.sendMail(mailOptions);
     res.status(200).json({
       success: true,
       message: 'Email sent successfully!'
